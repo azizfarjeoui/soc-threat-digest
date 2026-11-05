@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sign in - SOC Threat Intel Digest{% endblock %}
+
+{% block body %}
+<div class="row justify-content-center">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="fw-bold mb-1">Admin sign in</h2>
+                <p class="text-secondary mb-4">Premium actions require an administrator account.</p>
+
+                {% if error %}
+                    <div class="alert alert-danger">Invalid email or password.</div>
+                {% endif %}
+
+                <form method="post" action="{{ path('app_login') }}">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-semibold" for="username">Email</label>
+                        <input type="email" id="username" name="_username" value="{{ last_username }}" class="form-control bg-dark border-secondary text-light" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-semibold" for="password">Password</label>
+                        <input type="password" id="password" name="_password" class="form-control bg-dark border-secondary text-light" required>
+                    </div>
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+                    <button class="btn btn-accent w-100" type="submit">Sign in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

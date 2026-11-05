@@ -1,0 +1,265 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Admin Dashboard - SOC Threat Intel Digest{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <h2 class="fw-bold">Admin dashboard</h2>
+        <p class="text-secondary mb-0">Manage threat sources, trigger fetches, and control analyst access.</p>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary text-uppercase small fw-semibold">Sources</div>
+                <h3 class="fw-bold mb-0">{{ sources|length }}</h3>
+                <small class="text-muted">Configured in the catalog</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary text-uppercase small fw-semibold">Stored reports</div>
+                <h3 class="fw-bold mb-0">{{ totalReports }}</h3>
+                <small class="text-muted">{{ totalRuns }} fetch runs recorded</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-secondary text-uppercase small fw-semibold">Last completed run</div>
+                <h3 class="fw-bold mb-0">{% if latestRun %}#{{ latestRun.id }}{% else %}—{% endif %}</h3>
+                <small class="text-muted">{% if latestRun %}{{ latestRun.ranAt|date('Y-m-d H:i') }} · {{ latestRun.status }}{% else %}No runs yet{% endif %}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Run a fetch now</div>
+    <div class="card-body">
+        <form method="post" action="{{ path('app_admin_fetch') }}" class="row g-3 align-items-end">
+            <input type="hidden" name="_token" value="{{ csrf_token('admin_fetch') }}">
+            <div class="col-md-4">
+                <label class="form-label text-secondary small fw-semibold">Source</label>
+                <select name="source" class="form-select bg-dark border-secondary text-light">
+                    <option value="">All enabled sources</option>
+                    {% for source in sources %}
+                        <option value="{{ source.code }}">{{ source.name }} ({{ source.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-secondary small fw-semibold">Lookback (days)</label>
+                <input type="number" name="days" value="7" min="1" max="30" class="form-control bg-dark border-secondary text-light">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-accent">
+                    <i class="bi bi-cloud-download me-1"></i> Fetch now
+                </button>
+            </div>
+        </form>
+        <p class="text-muted small mt-3 mb-0">This runs immediately in the request (same as <span class="code-font">app:fetch-threat-digest</span>). Disabled sources are skipped unless you pick them explicitly.</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Threat sources</span>
+        <span class="badge bg-secondary">{{ sources|length }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0">
+                <thead>
+                    <tr class="text-secondary">
+                        <th class="ps-3">Name</th>
+                        <th>Code</th>
+                        <th>API URL</th>
+                        <th>API key</th>
+                        <th>Reports</th>
+                        <th>Status</th>
+                        <th class="pe-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for source in sources %}
+                        <tr>
+                            <td class="ps-3">
+                                <form method="post" action="{{ path('app_admin_source_update', {id: source.id}) }}" class="d-flex flex-column gap-2">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_source_update_' ~ source.id) }}">
+                                    <input type="text" name="name" value="{{ source.name }}" class="form-control form-control-sm bg-dark border-secondary text-light" required>
+                            </td>
+                            <td><span class="code-font small">{{ source.code }}</span></td>
+                            <td>
+                                    <input type="url" name="api_url" value="{{ source.apiUrl }}" class="form-control form-control-sm bg-dark border-secondary text-light" required>
+                            </td>
+                            <td>
+                                    <input type="password" name="api_key" placeholder="{{ source.apiKey ? '•••• saved' : 'Optional / env fallback' }}" class="form-control form-control-sm bg-dark border-secondary text-light" autocomplete="off">
+                                    <button type="submit" class="btn btn-sm btn-outline-light mt-2">Save</button>
+                                </form>
+                            </td>
+                            <td>{{ reportCounts[source.code]|default(0) }}</td>
+                            <td>
+                                {% if source.enabled %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Enabled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Disabled</span>
+                                {% endif %}
+                                {% if source.code not in registeredCodes %}
+                                    <div class="small text-warning mt-1">No fetcher</div>
+                                {% endif %}
+                            </td>
+                            <td class="pe-3 text-end">
+                                <form method="post" action="{{ path('app_admin_source_toggle', {id: source.id}) }}" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_source_toggle_' ~ source.id) }}">
+                                    <button class="btn btn-sm btn-outline-info" type="submit">{{ source.enabled ? 'Disable' : 'Enable' }}</button>
+                                </form>
+                                <form method="post" action="{{ path('app_admin_source_delete', {id: source.id}) }}" class="d-inline" onsubmit="return confirm('Remove {{ source.name }} from the catalog?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_source_delete_' ~ source.id) }}">
+                                    <div class="form-check form-check-inline mt-2">
+                                        <input class="form-check-input" type="checkbox" name="purge_reports" value="1" id="purge-{{ source.id }}">
+                                        <label class="form-check-label small text-secondary" for="purge-{{ source.id }}">Delete reports</label>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if availableToAdd is not empty %}
+        <div class="card-footer border-secondary">
+            <h6 class="fw-semibold mb-3">Add a source</h6>
+            <form method="post" action="{{ path('app_admin_source_add') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_source_add') }}">
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small">Source</label>
+                    <select name="code" class="form-select bg-dark border-secondary text-light" required>
+                        {% for code, meta in availableToAdd %}
+                            <option value="{{ code }}" data-url="{{ meta.apiUrl }}" data-name="{{ meta.name }}">{{ meta.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small">Display name</label>
+                    <input type="text" name="name" class="form-control bg-dark border-secondary text-light" placeholder="Optional override">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small">API URL</label>
+                    <input type="url" name="api_url" class="form-control bg-dark border-secondary text-light" placeholder="Leave blank for default">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-secondary small">API key</label>
+                    <input type="text" name="api_key" class="form-control bg-dark border-secondary text-light" placeholder="Optional">
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-accent w-100" type="submit">Add</button>
+                </div>
+            </form>
+            <p class="small text-muted mt-2 mb-0">Only sources with a built-in fetcher can be added (CISA KEV, NVD, MalwareBazaar, AlienVault OTX).</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">Users</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark align-middle mb-0">
+                        <thead>
+                            <tr class="text-secondary">
+                                <th class="ps-3">Email</th>
+                                <th>Role</th>
+                                <th class="pe-3 text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td class="ps-3">{{ user.email }}</td>
+                                    <td>
+                                        {% if 'ROLE_ADMIN' in user.roles %}
+                                            <span class="badge bg-primary">Admin</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Analyst</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="pe-3 text-end">
+                                        {% if user != app.user %}
+                                            <form method="post" action="{{ path('app_admin_user_role', {id: user.id}) }}" class="d-inline">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_user_role_' ~ user.id) }}">
+                                                <button class="btn btn-sm btn-outline-info" type="submit">
+                                                    {{ 'ROLE_ADMIN' in user.roles ? 'Demote' : 'Make admin' }}
+                                                </button>
+                                            </form>
+                                            <form method="post" action="{{ path('app_admin_user_delete', {id: user.id}) }}" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('admin_user_delete_' ~ user.id) }}">
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                            </form>
+                                        {% else %}
+                                            <span class="text-muted small">You</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="3" class="text-center text-secondary py-3">No users yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer border-secondary">
+                <form method="post" action="{{ path('app_admin_user_add') }}" class="row g-3 align-items-end">
+                    <input type="hidden" name="_token" value="{{ csrf_token('admin_user_add') }}">
+                    <div class="col-md-5">
+                        <label class="form-label text-secondary small">Email</label>
+                        <input type="email" name="email" class="form-control bg-dark border-secondary text-light" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-secondary small">Password (min 8)</label>
+                        <input type="password" name="password" class="form-control bg-dark border-secondary text-light" minlength="8" required>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="is_admin" value="1" id="new-admin">
+                            <label class="form-check-label small" for="new-admin">Admin</label>
+                        </div>
+                        <button class="btn btn-accent w-100" type="submit">Create user</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100 border-danger border-opacity-25">
+            <div class="card-header text-danger">Danger zone</div>
+            <div class="card-body">
+                <p class="text-secondary">Permanently delete stored reports for one source. Source configuration is kept.</p>
+                <form method="post" action="{{ path('app_admin_reports_purge') }}" onsubmit="return confirm('Delete all reports for this source? This cannot be undone.');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('admin_reports_purge') }}">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">Source</label>
+                        <select name="source" class="form-select bg-dark border-secondary text-light" required>
+                            <option value="">Select…</option>
+                            {% for source in sources %}
+                                <option value="{{ source.code }}">{{ source.name }} ({{ reportCounts[source.code]|default(0) }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button class="btn btn-outline-danger" type="submit">Purge reports</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

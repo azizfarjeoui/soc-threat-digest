@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mysql:8
+    container_name: soc_mysql
+    environment:
+      MYSQL_DATABASE: soc_threat_digest
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: soc_app
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:80"
+    environment:
+      DATABASE_URL: "mysql://root:root@db:3306/soc_threat_digest?serverVersion=8.0.32&charset=utf8mb4"
+      MESSENGER_TRANSPORT_DSN: "doctrine://default?auto_setup=0"
+    depends_on:
+      - db
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: soc_worker
+    volumes:
+      - .:/var/www/html
+    command: php bin/console messenger:consume async -vv
+    environment:
+      DATABASE_URL: "mysql://root:root@db:3306/soc_threat_digest?serverVersion=8.0.32&charset=utf8mb4"
+      MESSENGER_TRANSPORT_DSN: "doctrine://default?auto_setup=0"
+    depends_on:
+      - db
+
+volumes:
+  db_data:

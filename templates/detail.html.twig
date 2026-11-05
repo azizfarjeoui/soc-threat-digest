@@ -1,0 +1,120 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Threat Report Detail - {{ report.externalId }}{% endblock %}
+
+{% block body %}
+<div class="mb-3">
+    <a href="{{ path('app_dashboard') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left-circle me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- Main Details Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center gap-2">
+                    {% if report.source == 'CISA_KEV' %}
+                        <span class="badge badge-source badge-cisa">CISA KEV</span>
+                    {% elseif report.source == 'NVD' %}
+                        <span class="badge badge-source badge-nvd">NVD (CVE)</span>
+                    {% elseif report.source == 'MALWARE_BAZAAR' %}
+                        <span class="badge badge-source badge-malware">Malware</span>
+                    {% elseif report.source == 'OTX' %}
+                        <span class="badge badge-source badge-otx">OTX Pulse</span>
+                    {% else %}
+                        <span class="badge bg-secondary badge-source">{{ report.source }}</span>
+                    {% endif %}
+                    <h5 class="mb-0 fw-semibold code-font text-info">{{ report.externalId }}</h5>
+                </div>
+                {% if report.sourceUrl %}
+                    <a href="{{ report.sourceUrl }}" target="_blank" class="btn btn-sm btn-accent">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> External Reference
+                    </a>
+                {% endif %}
+            </div>
+            
+            <div class="card-body">
+                <h4 class="fw-bold text-light mb-3">{{ report.title }}</h4>
+                
+                <h6 class="text-secondary small text-uppercase fw-semibold mb-2">Description / Analysis</h6>
+                <div class="bg-dark p-3 rounded border border-secondary text-light mb-4" style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem;">
+                    {{ report.description }}
+                </div>
+
+                <!-- Collapsible Raw Payload -->
+                <div class="accordion" id="payloadAccordion">
+                    <div class="accordion-item bg-secondary border-secondary">
+                        <h2 class="accordion-header" id="headingOne">
+                            <button class="accordion-button collapsed bg-dark text-light border-secondary shadow-none code-font" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePayload">
+                                <i class="bi bi-file-earmark-code me-2 text-info"></i> Collapsible Raw Payload (JSON)
+                            </button>
+                        </h2>
+                        <div id="collapsePayload" class="accordion-collapse collapse" data-bs-parent="#payloadAccordion">
+                            <div class="accordion-body p-0 border-top border-secondary">
+                                <pre class="m-0 p-3 bg-dark text-info code-font" style="max-height: 400px; overflow-y: auto; font-size: 0.85rem;"><code>{{ report.rawPayload|json_encode(128) }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metadata Sidebar -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header py-3">
+                <h6 class="mb-0 fw-semibold text-uppercase text-secondary" style="font-size: 0.8rem; letter-spacing: 0.5px;">Metadata Profile</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush list-group-dark mb-0">
+                    <li class="list-group-item bg-transparent border-secondary py-3">
+                        <div class="text-secondary small mb-1">Threat Severity</div>
+                        <div class="fw-semibold">
+                            {% if report.severity|lower starts with 'critical' or report.severity|lower starts with 'high' or report.severity == 'High' or report.severity == 'Critical' %}
+                                <span class="badge bg-danger bg-opacity-20 text-danger border border-danger border-opacity-30"><i class="bi bi-fire me-1"></i> {{ report.severity }}</span>
+                            {% elseif report.severity|lower starts with 'medium' or report.severity == 'Medium' %}
+                                <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30"><i class="bi bi-exclamation-triangle me-1"></i> {{ report.severity }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary bg-opacity-20 text-secondary border border-secondary border-opacity-30"><i class="bi bi-info-circle me-1"></i> {{ report.severity ?? 'N/A' }}</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% if report.malwareFamily %}
+                    <li class="list-group-item bg-transparent border-secondary py-3">
+                        <div class="text-secondary small mb-1">Malware Family / Actor</div>
+                        <div class="fw-semibold text-light">
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20"><i class="bi bi-tag-fill me-1"></i> {{ report.malwareFamily }}</span>
+                        </div>
+                    </li>
+                    {% endif %}
+                    <li class="list-group-item bg-transparent border-secondary py-3">
+                        <div class="text-secondary small mb-1">Published At</div>
+                        <div class="fw-semibold text-light code-font">
+                            {{ report.publishedAt|date('Y-m-d H:i:s') }}
+                        </div>
+                    </li>
+                    <li class="list-group-item bg-transparent border-secondary py-3">
+                        <div class="text-secondary small mb-1">Synced to local DB</div>
+                        <div class="fw-semibold text-light code-font">
+                            {{ report.fetchedAt|date('Y-m-d H:i:s') }}
+                        </div>
+                    </li>
+                    <li class="list-group-item bg-transparent border-secondary py-3">
+                        <div class="text-secondary small mb-1">Fetch Run Context</div>
+                        <div class="fw-semibold text-light">
+                            {% if report.fetchRun %}
+                                <span class="badge bg-secondary code-font">Run ID: {{ report.fetchRun.id }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary text-muted">Unknown</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

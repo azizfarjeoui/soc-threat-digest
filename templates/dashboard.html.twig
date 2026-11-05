@@ -1,0 +1,213 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Weekly SOC Threat Intelligence Dashboard{% endblock %}
+
+{% block body %}
+<!-- Summary Stats Banner -->
+{% if latestRun %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-danger-subtle bg-opacity-10" style="background: radial-gradient(circle at 10% 20%, rgba(239, 68, 68, 0.1) 0%, rgba(30, 41, 59, 0.2) 90%);">
+            <div class="card-body d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-danger bg-opacity-25 text-danger me-3">
+                    <i class="bi bi-bug display-6"></i>
+                </div>
+                <div>
+                    <h6 class="text-secondary text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">Critical/High CVEs</h6>
+                    <h3 class="fw-bold mb-0 text-light">{{ stats.critical_vulns }}</h3>
+                    <small class="text-muted">From CISA KEV & NVD this week</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-warning-subtle bg-opacity-10" style="background: radial-gradient(circle at 10% 20%, rgba(245, 158, 11, 0.1) 0%, rgba(30, 41, 59, 0.2) 90%);">
+            <div class="card-body d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-warning bg-opacity-25 text-warning me-3">
+                    <i class="bi bi-shield-slash display-6"></i>
+                </div>
+                <div>
+                    <h6 class="text-secondary text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">New Malware Samples</h6>
+                    <h3 class="fw-bold mb-0 text-light">{{ stats.malware_samples }}</h3>
+                    <small class="text-muted">From MalwareBazaar this week</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-info-subtle bg-opacity-10" style="background: radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.1) 0%, rgba(30, 41, 59, 0.2) 90%);">
+            <div class="card-body d-flex align-items-center">
+                <div class="rounded-3 p-3 bg-info bg-opacity-25 text-info me-3">
+                    <i class="bi bi-activity display-6"></i>
+                </div>
+                <div>
+                    <h6 class="text-secondary text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">OTX Subscribed Pulses</h6>
+                    <h3 class="fw-bold mb-0 text-light">{{ stats.otx_pulses }}</h3>
+                    <small class="text-muted">From AlienVault OTX this week</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filters Panel -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ path('app_dashboard') }}" class="row g-3 align-items-end">
+            <div class="col-lg-3 col-md-6">
+                <label for="search" class="form-label text-secondary small fw-semibold">Search Keywords</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-secondary border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control bg-dark border-secondary text-light" id="search" name="q" value="{{ filters.q }}" placeholder="CVE, Malware, Pulse...">
+                </div>
+            </div>
+            
+            <div class="col-lg-2 col-md-3 col-6">
+                <label for="source" class="form-label text-secondary small fw-semibold">Threat Source</label>
+                <select class="form-select bg-dark border-secondary text-light" id="source" name="source">
+                    <option value="">All Sources</option>
+                    <option value="CISA_KEV" {% if filters.source == 'CISA_KEV' %}selected{% endif %}>CISA KEV</option>
+                    <option value="NVD" {% if filters.source == 'NVD' %}selected{% endif %}>NVD (CVEs)</option>
+                    <option value="MALWARE_BAZAAR" {% if filters.source == 'MALWARE_BAZAAR' %}selected{% endif %}>MalwareBazaar</option>
+                    <option value="OTX" {% if filters.source == 'OTX' %}selected{% endif %}>AlienVault OTX</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 col-md-3 col-6">
+                <label for="severity" class="form-label text-secondary small fw-semibold">Severity</label>
+                <select class="form-select bg-dark border-secondary text-light" id="severity" name="severity">
+                    <option value="">All Severities</option>
+                    <option value="High/Critical" {% if filters.severity == 'High/Critical' %}selected{% endif %}>High / Critical</option>
+                    <option value="Medium" {% if filters.severity == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="Low" {% if filters.severity == 'Low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+
+            <div class="col-lg-2 col-md-6 col-6">
+                <label for="start_date" class="form-label text-secondary small fw-semibold">From Date</label>
+                <input type="date" class="form-control bg-dark border-secondary text-light" id="start_date" name="start_date" value="{{ filters.start_date }}">
+            </div>
+
+            <div class="col-lg-2 col-md-6 col-6">
+                <label for="end_date" class="form-label text-secondary small fw-semibold">To Date</label>
+                <input type="date" class="form-control bg-dark border-secondary text-light" id="end_date" name="end_date" value="{{ filters.end_date }}">
+            </div>
+
+            <div class="col-lg-1 col-md-12 text-end d-flex gap-2">
+                <button type="submit" class="btn btn-accent w-100" title="Apply Filters"><i class="bi bi-filter"></i></button>
+                <a href="{{ path('app_dashboard') }}" class="btn btn-outline-secondary" title="Clear Filters"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Main Feed -->
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center py-3">
+        <div class="d-flex align-items-center">
+            <h5 class="mb-0 fw-semibold"><i class="bi bi-shield-shaded me-2 text-indigo"></i>Weekly Threat Feed</h5>
+            {% if latestRun %}
+                <span class="ms-3 text-secondary small">
+                    Latest Sync: <span class="badge bg-secondary code-font">{{ latestRun.ranAt|date('Y-m-d H:i') }}</span>
+                    {% if latestRun.status == 'SUCCESS' %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 ms-1"><i class="bi bi-check-circle-fill"></i> Success</span>
+                    {% elseif latestRun.status == 'PARTIAL_FAILURE' %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 ms-1"><i class="bi bi-exclamation-triangle-fill"></i> Partial Failure</span>
+                    {% else %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 ms-1"><i class="bi bi-x-circle-fill"></i> Failed</span>
+                    {% endif %}
+                </span>
+            {% endif %}
+        </div>
+        {% if latestRun and reports|length > 0 %}
+            <span class="badge bg-secondary rounded-pill fw-normal">{{ reports|length }} records matching</span>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        {% if reports is empty %}
+            <div class="text-center py-5">
+                <i class="bi bi-shield-slash display-2 text-secondary mb-3"></i>
+                <h4 class="text-secondary fw-semibold">No Threat Reports Found</h4>
+                <p class="text-muted">
+                    {% if latestRun %}
+                        No reports match your current filters. Try resetting the filters.
+                    {% else %}
+                        No weekly digests have been run yet.
+                    {% endif %}
+                </p>
+                {% if not latestRun %}
+                    <div class="mt-4">
+                        <code class="d-block p-3 bg-dark text-light border border-secondary rounded code-font mx-auto" style="max-width: 500px;">
+                            php bin/console app:fetch-threat-digest
+                        </code>
+                        <small class="text-muted mt-2 d-block">Run this command in the terminal to manually fetch your first digest.</small>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-secondary border-bottom border-secondary" style="font-size: 0.85rem; letter-spacing: 0.5px;">
+                            <th class="ps-4" style="width: 15%;">Source</th>
+                            <th style="width: 18%;">Identifier</th>
+                            <th style="width: 40%;">Title</th>
+                            <th style="width: 12%;">Severity</th>
+                            <th style="width: 10%;">Published</th>
+                            <th class="text-end pe-4" style="width: 5%;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                            <tr class="border-bottom border-secondary">
+                                <td class="ps-4">
+                                    {% if report.source == 'CISA_KEV' %}
+                                        <span class="badge badge-source badge-cisa">CISA KEV</span>
+                                    {% elseif report.source == 'NVD' %}
+                                        <span class="badge badge-source badge-nvd">NVD (CVE)</span>
+                                    {% elseif report.source == 'MALWARE_BAZAAR' %}
+                                        <span class="badge badge-source badge-malware">Malware</span>
+                                    {% elseif report.source == 'OTX' %}
+                                        <span class="badge badge-source badge-otx">OTX Pulse</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary badge-source">{{ report.source }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="code-font text-info text-break" style="font-size: 0.9rem;">{{ report.externalId }}</span>
+                                    {% if report.malwareFamily %}
+                                        <div class="small text-muted mt-1"><i class="bi bi-tag-fill me-1"></i>{{ report.malwareFamily }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-medium text-light">
+                                    <div class="text-truncate-2" style="max-width: 450px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
+                                        {{ report.title }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if report.severity|lower starts with 'critical' or report.severity|lower starts with 'high' or report.severity == 'High' or report.severity == 'Critical' %}
+                                        <span class="badge bg-danger bg-opacity-20 text-danger border border-danger border-opacity-30"><i class="bi bi-fire me-1"></i> {{ report.severity }}</span>
+                                    {% elseif report.severity|lower starts with 'medium' or report.severity == 'Medium' %}
+                                        <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30"><i class="bi bi-exclamation-triangle me-1"></i> {{ report.severity }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-20 text-secondary border border-secondary border-opacity-30"><i class="bi bi-info-circle me-1"></i> {{ report.severity ?? 'N/A' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-secondary text-nowrap" style="font-size: 0.9rem;">
+                                    {{ report.publishedAt|date('Y-m-d') }}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a href="{{ path('app_report_detail', {id: report.id}) }}" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sync History - SOC Threat Intel Digest{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="fw-bold">Synchronization History</h2>
+        <p class="text-secondary">Track past execution cycles, import statistics, and API health status.</p>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 fw-semibold"><i class="bi bi-clock-history me-2 text-indigo"></i>Past Fetch Runs</h5>
+        <span class="badge bg-primary rounded-pill">{{ runs|length }} runs total</span>
+    </div>
+    <div class="card-body p-0">
+        {% if runs is empty %}
+            <div class="text-center py-5">
+                <i class="bi bi-clock display-1 text-secondary mb-3"></i>
+                <h4 class="text-secondary">No Sync History Available</h4>
+                <p class="text-muted">No runs have completed yet. Run the pipeline manually or wait for the weekly schedule.</p>
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-secondary border-bottom border-secondary" style="font-size: 0.85rem; letter-spacing: 0.5px;">
+                            <th class="ps-4" style="width: 10%;">Run ID</th>
+                            <th style="width: 25%;">Ran At</th>
+                            <th style="width: 15%;">Status</th>
+                            <th style="width: 15%;">New Records</th>
+                            <th style="width: 25%;">Processed Sources</th>
+                            <th class="text-end pe-4" style="width: 10%;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                            <tr class="border-bottom border-secondary">
+                                <td class="ps-4">
+                                    <span class="code-font text-secondary">#{{ run.id }}</span>
+                                </td>
+                                <td class="fw-semibold text-light code-font">
+                                    {{ run.ranAt|date('Y-m-d H:i:s') }}
+                                </td>
+                                <td>
+                                    {% if run.status == 'SUCCESS' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20"><i class="bi bi-check-circle-fill me-1"></i> Success</span>
+                                    {% elseif run.status == 'PARTIAL_FAILURE' %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i> Partial Failure</span>
+                                    {% elseif run.status == 'RUNNING' %}
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Running</span>
+                                    {% else %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20"><i class="bi bi-x-circle-fill me-1"></i> Failed</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary rounded-pill fw-semibold">{{ run.newReportsCount }} new</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for source in run.processedSources %}
+                                            <span class="badge bg-dark border border-secondary text-secondary code-font" style="font-size: 0.7rem;">{{ source }}</span>
+                                        {% else %}
+                                            <span class="text-muted small">None</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="text-end pe-4">
+                                    {% if run.errors is not empty %}
+                                        <button class="btn btn-sm btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#errors-{{ run.id }}" aria-expanded="false" title="Show run errors">
+                                            <i class="bi bi-exclamation-octagon"></i>
+                                        </button>
+                                    {% else %}
+                                        <span class="text-success small"><i class="bi bi-shield-check"></i> Clean</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% if run.errors is not empty %}
+                                <tr class="collapse bg-dark bg-opacity-50" id="errors-{{ run.id }}">
+                                    <td colspan="6" class="p-4 border-bottom border-secondary">
+                                        <div class="text-warning small fw-bold mb-2"><i class="bi bi-exclamation-octagon-fill me-1"></i> Sync Errors Encountered:</div>
+                                        <div class="bg-black bg-opacity-50 p-3 rounded border border-warning border-opacity-20">
+                                            {% for src, error in run.errors %}
+                                                <div class="mb-2 last-mb-0">
+                                                    <span class="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-20 code-font me-2">{{ src }}</span>
+                                                    <code class="text-danger small">{{ error }}</code>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
